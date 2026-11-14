@@ -131,6 +131,8 @@ def get_latest(repo, flavor, token=None):
         asset = pick_asset(release, flavor)
         if asset:
             return {"version": tag, "url": asset["browser_download_url"], "source": "release"}
+        if release.get("assets"):
+            raise UpdaterError("Latest release has no download for the selected game version")
         url = "https://github.com/%s/archive/refs/tags/%s.zip" % (repo, urllib.parse.quote(tag))
         return {"version": tag, "url": url, "source": "tag (source)"}
 
@@ -256,6 +258,9 @@ def load_config():
         pass
     if cfg.get("flavor") not in {f for _, f, _ in FLAVORS}:
         cfg["flavor"] = "classic"
+    # Older configs used mainline as the default; the app's requested default is Forever.
+    if cfg.get("flavor") == "mainline":
+        cfg["flavor"] = "classic"
     return cfg
 
 
@@ -307,9 +312,24 @@ def main():
         bg, panel, fg = ("#171a21", "#222733", "#e7eaf0") if dark else ("#f2f4f8", "#ffffff", "#202633")
         muted = "#aab2c0" if dark else "#606b7a"
         root.configure(bg=bg)
+        # The native top level and menu popups do not use ttk styles.
+        root.option_add("*TCombobox*Listbox.background", panel)
+        root.option_add("*TCombobox*Listbox.foreground", fg)
+        root.option_add("*TCombobox*Listbox.selectBackground", "#345b91" if dark else "#cfe0f7")
+        root.option_add("*TCombobox*Listbox.selectForeground", "#ffffff" if dark else fg)
+        root.option_add("*Menu.background", panel)
+        root.option_add("*Menu.foreground", fg)
+        root.option_add("*Menu.activeBackground", "#345b91" if dark else "#cfe0f7")
+        root.option_add("*Menu.activeForeground", "#ffffff" if dark else fg)
+        try:
+            root.tk.call("tk", "setPalette", bg, fg)
+        except tk.TclError:
+            pass
         style.configure(".", background=bg, foreground=fg, font=("Segoe UI", 10))
         style.configure("TFrame", background=bg)
         style.configure("TLabel", background=bg, foreground=fg)
+        style.configure("TCheckbutton", background=bg, foreground=fg)
+        style.map("TCheckbutton", background=[("active", bg)], foreground=[("active", fg)])
         style.configure("TButton", padding=(12, 7), background=panel, foreground=fg)
         style.map("TButton", background=[("active", "#364255" if dark else "#e4eaf3")])
         style.configure("TEntry", fieldbackground=panel, foreground=fg, insertcolor=fg)
@@ -350,14 +370,19 @@ def main():
     labels = [l for l, _, _ in FLAVORS]
     current = next((l for l, f, _ in FLAVORS if f == cfg["flavor"]), "Forever")
     flavor_var = tk.StringVar(value=current)
-    ttk.Combobox(row2, textvariable=flavor_var, values=labels, state="readonly",
-                 width=16).pack(side="left")
+    flavor_menu = ttk.Combobox(row2, textvariable=flavor_var, values=labels, state="readonly",
+                               width=16)
+    flavor_menu.pack(side="left")
     ttk.Label(row2, text="GitHub token (optional)").pack(side="left", padx=(18, 8))
     token_var = tk.StringVar(value=cfg["token"])
     ttk.Entry(row2, textvariable=token_var, show="*", width=30).pack(side="left", ipady=3)
     ttk.Checkbutton(top, text="Dark mode", variable=dark_var,
                     command=lambda: (apply_theme(), persist())).grid(
         row=3, column=1, sticky="w", pady=(10, 0))
+
+    def flavor_changed(_event=None):
+        persist()
+    flavor_menu.bind("<<ComboboxSelected>>", flavor_changed)
 
     # --- addon list ---
     mid = ttk.Frame(root, padding=(18, 4, 18, 8))
