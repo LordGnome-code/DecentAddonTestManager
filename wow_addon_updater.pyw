@@ -24,11 +24,7 @@ API = "https://api.github.com"
 # (label shown in the window, flavor id used by addon packagers, filename hints)
 FLAVORS = [
     ("Retail", "mainline", ["mainline", "retail"]),
-    ("Classic Era", "classic", ["classic", "vanilla"]),
-    ("TBC Classic", "bcc", ["bcc", "tbc"]),
-    ("Wrath Classic", "wrath", ["wrath", "wotlk", "wotlkc"]),
-    ("Cata Classic", "cata", ["cata"]),
-    ("Mists Classic", "mists", ["mists", "mop"]),
+    ("Forever", "classic", ["classic", "vanilla"]),
 ]
 ALL_HINTS = sorted({h for _, _, hints in FLAVORS for h in hints})
 TOC_SUFFIX = re.compile(
@@ -250,7 +246,7 @@ def guess_addons_dir():
 
 
 def load_config():
-    cfg = {"addons_dir": "", "flavor": "mainline", "token": "", "addons": []}
+    cfg = {"addons_dir": "", "flavor": "classic", "token": "", "dark_mode": False, "addons": []}
     try:
         with open(CONFIG_PATH, encoding="utf-8") as f:
             cfg.update(json.load(f))
@@ -258,6 +254,8 @@ def load_config():
         cfg["addons_dir"] = guess_addons_dir()
     except (OSError, ValueError):
         pass
+    if cfg.get("flavor") not in {f for _, f, _ in FLAVORS}:
+        cfg["flavor"] = "classic"
     return cfg
 
 
@@ -294,17 +292,48 @@ def main():
 
     root = tk.Tk()
     root.title("WoW Addon Updater")
-    root.geometry("860x480")
-    root.minsize(700, 360)
+    root.geometry("980x570")
+    root.minsize(780, 440)
+
+    style = ttk.Style(root)
+    try:
+        style.theme_use("clam")
+    except tk.TclError:
+        pass
+    dark_var = tk.BooleanVar(value=cfg.get("dark_mode", False))
+
+    def apply_theme():
+        dark = dark_var.get()
+        bg, panel, fg = ("#171a21", "#222733", "#e7eaf0") if dark else ("#f2f4f8", "#ffffff", "#202633")
+        muted = "#aab2c0" if dark else "#606b7a"
+        root.configure(bg=bg)
+        style.configure(".", background=bg, foreground=fg, font=("Segoe UI", 10))
+        style.configure("TFrame", background=bg)
+        style.configure("TLabel", background=bg, foreground=fg)
+        style.configure("TButton", padding=(12, 7), background=panel, foreground=fg)
+        style.map("TButton", background=[("active", "#364255" if dark else "#e4eaf3")])
+        style.configure("TEntry", fieldbackground=panel, foreground=fg, insertcolor=fg)
+        style.configure("TCombobox", fieldbackground=panel, background=panel, foreground=fg, arrowcolor=fg)
+        style.map("TCombobox", fieldbackground=[("readonly", panel)], foreground=[("readonly", fg)])
+        style.configure("Treeview", background=panel, fieldbackground=panel, foreground=fg,
+                        rowheight=29, borderwidth=0)
+        style.configure("Treeview.Heading", background=("#303847" if dark else "#e7ebf2"),
+                        foreground=fg, padding=(8, 7), font=("Segoe UI Semibold", 9))
+        style.map("Treeview", background=[("selected", "#345b91" if dark else "#cfe0f7")],
+                  foreground=[("selected", "#ffffff" if dark else fg)])
+        style.configure("Status.TLabel", background=panel, foreground=muted, padding=(10, 7))
 
     # --- settings rows ---
-    top = ttk.Frame(root, padding=(10, 10, 10, 4))
+    top = ttk.Frame(root, padding=(18, 16, 18, 10))
     top.pack(fill="x")
     top.columnconfigure(1, weight=1)
 
-    ttk.Label(top, text="AddOns folder").grid(row=0, column=0, sticky="w", padx=(0, 8))
+    ttk.Label(top, text="WoW Addon Updater", font=("Segoe UI Semibold", 17)).grid(
+        row=0, column=0, columnspan=3, sticky="w", pady=(0, 12))
+
+    ttk.Label(top, text="AddOns folder").grid(row=1, column=0, sticky="w", padx=(0, 12))
     dir_var = tk.StringVar(value=cfg["addons_dir"])
-    ttk.Entry(top, textvariable=dir_var).grid(row=0, column=1, sticky="ew")
+    ttk.Entry(top, textvariable=dir_var).grid(row=1, column=1, sticky="ew", ipady=4)
 
     def browse():
         path = filedialog.askdirectory(title="Select your Interface\\AddOns folder",
@@ -313,22 +342,25 @@ def main():
             dir_var.set(os.path.normpath(path))
             persist()
 
-    ttk.Button(top, text="Browse...", command=browse).grid(row=0, column=2, padx=(6, 0))
+    ttk.Button(top, text="Browse…", command=browse).grid(row=1, column=2, padx=(8, 0))
 
-    ttk.Label(top, text="Game version").grid(row=1, column=0, sticky="w", padx=(0, 8), pady=(6, 0))
+    ttk.Label(top, text="Game version").grid(row=2, column=0, sticky="w", padx=(0, 12), pady=(10, 0))
     row2 = ttk.Frame(top)
-    row2.grid(row=1, column=1, columnspan=2, sticky="ew", pady=(6, 0))
+    row2.grid(row=2, column=1, columnspan=2, sticky="ew", pady=(10, 0))
     labels = [l for l, _, _ in FLAVORS]
-    current = next((l for l, f, _ in FLAVORS if f == cfg["flavor"]), labels[0])
+    current = next((l for l, f, _ in FLAVORS if f == cfg["flavor"]), "Forever")
     flavor_var = tk.StringVar(value=current)
     ttk.Combobox(row2, textvariable=flavor_var, values=labels, state="readonly",
                  width=16).pack(side="left")
     ttk.Label(row2, text="GitHub token (optional)").pack(side="left", padx=(18, 8))
     token_var = tk.StringVar(value=cfg["token"])
-    ttk.Entry(row2, textvariable=token_var, show="*", width=30).pack(side="left")
+    ttk.Entry(row2, textvariable=token_var, show="*", width=30).pack(side="left", ipady=3)
+    ttk.Checkbutton(top, text="Dark mode", variable=dark_var,
+                    command=lambda: (apply_theme(), persist())).grid(
+        row=3, column=1, sticky="w", pady=(10, 0))
 
     # --- addon list ---
-    mid = ttk.Frame(root, padding=(10, 6))
+    mid = ttk.Frame(root, padding=(18, 4, 18, 8))
     mid.pack(fill="both", expand=True)
     cols = ("repo", "installed", "latest", "source", "status")
     tree = ttk.Treeview(mid, columns=cols, show="headings", selectmode="extended")
@@ -346,11 +378,11 @@ def main():
     tree.tag_configure("error", foreground="#c62828")
 
     # --- buttons + status bar ---
-    bottom = ttk.Frame(root, padding=(10, 4, 10, 6))
+    bottom = ttk.Frame(root, padding=(18, 6, 18, 10))
     bottom.pack(fill="x")
     status_var = tk.StringVar(value="Ready")
-    ttk.Label(root, textvariable=status_var, relief="sunken", anchor="w",
-              padding=(8, 2)).pack(fill="x", side="bottom")
+    ttk.Label(root, textvariable=status_var, style="Status.TLabel", anchor="w").pack(
+        fill="x", side="bottom", padx=18, pady=(0, 14))
 
     def flavor_id():
         return next(f for l, f, _ in FLAVORS if l == flavor_var.get())
@@ -359,6 +391,7 @@ def main():
         cfg["addons_dir"] = dir_var.get().strip()
         cfg["flavor"] = flavor_id()
         cfg["token"] = token_var.get().strip()
+        cfg["dark_mode"] = dark_var.get()
         try:
             save_config(cfg)
         except OSError as e:
@@ -475,6 +508,9 @@ def main():
     def all_repos():
         return [a["repo"] for a in cfg["addons"]]
 
+    def selected_repos():
+        return list(tree.selection())
+
     def add_addon():
         text = simpledialog.askstring(
             "Add addon", "GitHub repository (URL or owner/repo):", parent=root)
@@ -516,15 +552,19 @@ def main():
         ttk.Button(bottom, text="Add addon...", command=add_addon),
         ttk.Button(bottom, text="Remove", command=remove_addon),
         ttk.Button(bottom, text="Check for updates", command=lambda: start(all_repos(), False)),
+        ttk.Button(bottom, text="Check selected", command=lambda: start(selected_repos(), False)),
         ttk.Button(bottom, text="Update selected",
                    command=lambda: start(tree.selection(), True)),
         ttk.Button(bottom, text="Update all", command=lambda: start(all_repos(), True)),
     ]
     buttons[0].pack(side="left")
     buttons[1].pack(side="left", padx=(6, 0))
-    buttons[4].pack(side="right")
+    buttons[5].pack(side="right")
+    buttons[4].pack(side="right", padx=(0, 6))
     buttons[3].pack(side="right", padx=(0, 6))
     buttons[2].pack(side="right", padx=(0, 6))
+
+    apply_theme()
 
     def on_close():
         persist()
