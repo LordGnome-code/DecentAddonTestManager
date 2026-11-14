@@ -10,6 +10,7 @@ import queue
 import re
 import shutil
 import stat
+import sys
 import tempfile
 import threading
 import urllib.error
@@ -17,7 +18,10 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-APP_DIR = os.path.dirname(os.path.abspath(__file__))
+# In a PyInstaller one-file build, __file__ points into a temporary extraction
+# folder. Keep the editable config beside the actual executable instead.
+APP_DIR = os.path.dirname(os.path.abspath(
+    sys.executable if getattr(sys, "frozen", False) else __file__))
 CONFIG_PATH = os.path.join(APP_DIR, "addons.json")
 API = "https://api.github.com"
 

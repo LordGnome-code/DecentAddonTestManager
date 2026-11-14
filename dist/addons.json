@@ -1,0 +1,42 @@
+{
+  "addons_dir": "C:\\Program Files (x86)\\World of Warcraft\\_forever_\\Interface\\AddOns",
+  "flavor": "mainline",
+  "token": "",
+  "addons": [
+    {
+      "repo": "LordGnome-code/PhantomCollector",
+      "installed_version": "2763321",
+      "folders": [
+        "PhantomCollector"
+      ]
+    },
+    {
+      "repo": "LordGnome-code/PhantomGamble",
+      "installed_version": "914223e",
+      "folders": [
+        "DecentGamble"
+      ]
+    },
+    {
+      "repo": "LordGnome-code/Decent-PVP-Rank",
+      "installed_version": "8cefc3e",
+      "folders": [
+        "DecentPVPRank"
+      ]
+    },
+    {
+      "repo": "LordGnome-code/PhantomCurse",
+      "installed_version": "942fb47",
+      "folders": [
+        "PhantomCurse"
+      ]
+    },
+    {
+      "repo": "LordGnome-code/Decent-Aura-Contest",
+      "installed_version": "0590ad3",
+      "folders": [
+        "DecentContest"
+      ]
+    }
+  ]
+}
